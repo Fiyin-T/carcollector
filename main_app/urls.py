@@ -19,5 +19,7 @@ urlpatterns = [
     path('parts/<int:pk>/update/', views.PartUpdate.as_view(), name='parts_update'),
     path('parts/<int:pk>/delete/', views.PartDelete.as_view(), name='parts_delete'),
     # associate a part with a car (M:M)
-    path('cars/<int:car_id>/assoc_part/<int:part_id>/', views.assoc_part, name='assoc_part')
+    path('cars/<int:car_id>/assoc_part/<int:part_id>/', views.assoc_part, name='assoc_part'),
+    # Car Photo URL
+    path('cars/<int:car_id>/add_photo/', views.add_photo, name='add_photo')
 ]
