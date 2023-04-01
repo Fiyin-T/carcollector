@@ -1,13 +1,18 @@
 from django.shortcuts import render, redirect
-from . models import Car, Part
+from . models import Car, Part, Photo
 from django.http import HttpResponse
 from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.views.generic import ListView, DetailView
 from . forms import TuningForm
+import uuid, boto3
+
+# S3 bucket variables 
+S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/'
+BUCKET = 'carcollector-app-storage'
 
 class CarCreate(CreateView):
     model = Car
-    fields = '__all__'
+    fields = ['make', 'model', 'year', 'description', 'age']
     success_url = '/cars/'
 
 class CarUpdate(UpdateView):
@@ -73,4 +78,22 @@ class PartDelete(DeleteView):
 
 def assoc_part(request, car_id, part_id):
     Car.objects.get(id=car_id).parts.add(part_id)
+    return redirect('detail', car_id=car_id)
+
+def add_photo(request, car_id):
+    photo_file = request.FILES.get('photo-file', None)
+    if photo_file:
+        s3 = boto3.client('s3')
+        # unique "key" for S3 and image file extension
+        key = uuid.uuid4().hex[:6] + photo_file.name[photo_file.name.rfind('.'):]
+        # check
+        try:
+            s3.upload_fileobj(photo_file, BUCKET, key)
+            # build url string
+            url = f"{S3_BASE_URL}{BUCKET}/{key}"
+            # assign to car_id or car (if car object)
+            photo = Photo(url=url, car_id=car_id)
+            photo.save()
+        except:
+            print('An error occurred uploading file to S3')
     return redirect('detail', car_id=car_id)
