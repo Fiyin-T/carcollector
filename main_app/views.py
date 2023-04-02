@@ -5,21 +5,29 @@ from django.views.generic.edit import CreateView, UpdateView, DeleteView
 from django.views.generic import ListView, DetailView
 from . forms import TuningForm
 import uuid, boto3
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth import login
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 # S3 bucket variables 
 S3_BASE_URL = 'https://s3.us-east-1.amazonaws.com/'
 BUCKET = 'carcollector-app-storage'
 
-class CarCreate(CreateView):
+class CarCreate(LoginRequiredMixin, CreateView):
     model = Car
     fields = ['make', 'model', 'year', 'description', 'age']
     success_url = '/cars/'
 
-class CarUpdate(UpdateView):
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+class CarUpdate(LoginRequiredMixin, UpdateView):
     model = Car
     fields = ['model', 'year', 'description', 'age']
 
-class CarDelete(DeleteView):
+class CarDelete(LoginRequiredMixin, DeleteView):
     model = Car
     success_url = '/cars/'
 
@@ -48,6 +56,7 @@ def cars_detail(request, car_id):
         'parts': parts_car_doesnt_have 
         })
 
+@login_required
 def add_tuning(request, car_id):
     # create ModelForm using the data in request.POST
     form = TuningForm(request.POST)
@@ -64,18 +73,19 @@ class PartList(ListView):
 class PartDetail(DetailView):
     model = Part
 
-class PartCreate(CreateView):
+class PartCreate(LoginRequiredMixin, CreateView):
     model = Part
     fields = '__all__'
 
-class PartUpdate(UpdateView):
+class PartUpdate(LoginRequiredMixin, UpdateView):
     model = Part
     fields = ['name', 'color']
 
-class PartDelete(DeleteView):
+class PartDelete(LoginRequiredMixin, DeleteView):
     model = Part
     success_url = '/parts/'
 
+@login_required
 def assoc_part(request, car_id, part_id):
     Car.objects.get(id=car_id).parts.add(part_id)
     return redirect('detail', car_id=car_id)
@@ -97,3 +107,17 @@ def add_photo(request, car_id):
         except:
             print('An error occurred uploading file to S3')
     return redirect('detail', car_id=car_id)
+
+def signup(request):
+    error_message = ''
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            return redirect('index')
+        else:
+            error_message = 'Invalid sign up - try again'
+    form = UserCreationForm()
+    context = {'form': form, 'error_message': error_message}
+    return render(request, 'registration/signup.html', context)
